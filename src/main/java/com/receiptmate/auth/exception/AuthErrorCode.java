@@ -9,6 +9,12 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum AuthErrorCode implements ErrorCode {
 
+    UNSUPPORTED_SNS_PROVIDER(
+            HttpStatus.BAD_REQUEST,
+            "UNSUPPORTED_SNS_PROVIDER",
+            "지원하지 않는 SNS 로그인 방식입니다."
+    ),
+
     SIGNUP_SESSION_EXPIRED(
             HttpStatus.UNAUTHORIZED,
             "SIGNUP_SESSION_EXPIRED",

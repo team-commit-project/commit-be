@@ -4,8 +4,11 @@ import com.receiptmate.auth.dto.OAuthSignupSession;
 import com.receiptmate.auth.entity.CustomOAuth2User;
 import com.receiptmate.auth.entity.OAuthPrincipal;
 import com.receiptmate.auth.generator.SecureTokenGenerator;
+import com.receiptmate.auth.provider.AuthCookieProvider;
+import com.receiptmate.auth.provider.CsrfTokenProvider;
 import com.receiptmate.auth.repository.OAuthSignupSessionRepository;
 import com.receiptmate.auth.service.RefreshTokenService;
+import com.receiptmate.user.type.UserStatus;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,35 +31,34 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     @Value("${oauth.client-main}")
     private String oAuthClientMain;
     @Value("${oauth.client-signup}")
-    private String oAuthClientAuth;
+    private String oauthClientSignup;
 
     private final SecureTokenGenerator secureTokenGenerator;
-    private final OAuthSignupSessionRepository oAuthSignupSessionRepository;
     private final RefreshTokenService refreshTokenService;
+    private final OAuthSignupSessionRepository oAuthSignupSessionRepository;
+    private final AuthCookieProvider authCookieProvider;
+    private final CsrfTokenProvider csrfTokenProvider;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         OAuthPrincipal oAuth2User = (OAuthPrincipal) authentication.getPrincipal();
+
+        Long userId = oAuth2User.getUserId();
+        String snsId = oAuth2User.getSnsId();
+        UserStatus userStatus = oAuth2User.getUserStatus();
         Map<String, Object> attributes = oAuth2User.getAttributes();
-        boolean existed = oAuth2User.isExisted();
+
+        // OAuth 인증 성공 후 새로운 CSRF Token 발급
+        csrfTokenProvider.issue(request, response);
 
         // 회원가입 O
-        if (existed) {
-
-            Long userId = oAuth2User.getUserId();
+        if (userStatus == UserStatus.ACTIVE) {
 
             // Refresh Token 발급 + Redis 저장
             String refreshToken = refreshTokenService.issue(userId);
 
             // Redis Token 원문은 HttpOnly Cookie에 저장
-            ResponseCookie refreshTokenCookie = ResponseCookie
-                    .from("refreshToken", refreshToken)
-                    .httpOnly(true)
-                    .secure(false)
-                    .sameSite("Lax")
-                    .path("/api/v1/auth")
-                    .maxAge(Duration.ofDays(1))
-                    .build();
+            ResponseCookie refreshTokenCookie = authCookieProvider.createRefreshTokenCookie(refreshToken);
 
             response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
 
@@ -64,34 +66,26 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             return;
         }
 
-        // 회원가입 X
-        else {
-            String snsId = (String) attributes.get("snsId");
+        // 추가 회원가입이 필요한 사용자
+        if (userStatus == UserStatus.SIGNUP_REQUIRED) {
             String joinType = (String)  attributes.get("joinType");
 
             // Redis Key로 사용할 랜덤 signupToken 생성
             String signupToken = secureTokenGenerator.generate();
 
-            // 실제 OAuth 회원가입 정보는 Redis에 저장
+            // OAuth 회원가입 정보는 Redis에 저장
             OAuthSignupSession signupSession = new OAuthSignupSession(snsId, joinType);
             oAuthSignupSessionRepository.save(signupToken, signupSession);
 
-            // 브라우저에 signupToken만 쿠키로 전달
-            ResponseCookie signupTokenCookie = ResponseCookie
-                    .from("signupToken", signupToken)
-                    .httpOnly(true)
-                    .secure(false)
-                    .sameSite("Lax")
-                    .path("/")
-                    .maxAge(Duration.ofMinutes(10))
-                    .build();
+            // 브라우저에 signupToken만 HttpOnly Cookie로 전달
+            ResponseCookie signupTokenCookie = authCookieProvider.createSignupTokenCookie(signupToken);
 
             response.addHeader(
                     HttpHeaders.SET_COOKIE,
                     signupTokenCookie.toString()
             );
 
-            response.sendRedirect(oAuthClientAuth);
+            response.sendRedirect(oauthClientSignup);
         }
     }
 }

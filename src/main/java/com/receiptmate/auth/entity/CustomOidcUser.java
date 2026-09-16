@@ -1,5 +1,6 @@
 package com.receiptmate.auth.entity;
 
+import com.receiptmate.user.type.UserStatus;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -13,14 +14,16 @@ import java.util.Map;
 public class CustomOidcUser extends DefaultOidcUser implements OAuthPrincipal {
 
     private final Long userId;
-    private final boolean existed;
+    private final String snsId;
+    private final UserStatus userStatus;
     private final Map<String, Object> attributes;
 
-    public CustomOidcUser(Long userId, OidcUser oidcUser, boolean existed) {
+    public CustomOidcUser(Long userId, OidcUser oidcUser, UserStatus userStatus) {
         super(AuthorityUtils.NO_AUTHORITIES, oidcUser.getIdToken(), "sub");
 
         this.userId = userId;
-        this.existed = existed;
+        this.snsId = oidcUser.getSubject();
+        this.userStatus = userStatus;
 
         this.attributes = new HashMap<>(oidcUser.getAttributes());
         this.attributes.put("snsId", oidcUser.getSubject());
