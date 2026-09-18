@@ -18,17 +18,12 @@ public class RefreshTokenRepository {
 
     // Refresh Token 해시와 userId 저장
     public void save(String refreshTokenHash, Long userId) {
-        redisTemplate.opsForValue().set(
-                KEY_PREFIX + refreshTokenHash,
-                String.valueOf(userId),
-                TTL
-        );
+        redisTemplate.opsForValue().set(KEY_PREFIX + refreshTokenHash, String.valueOf(userId),TTL);
     }
 
     // Refresh Token으로 사용자 조회
     public Optional<Long> findUserId(String refreshTokenHash) {
-        String userId = redisTemplate.opsForValue()
-                .get(KEY_PREFIX + refreshTokenHash);
+        String userId = redisTemplate.opsForValue().get(KEY_PREFIX + refreshTokenHash);
 
         if (userId == null) {
             return Optional.empty();

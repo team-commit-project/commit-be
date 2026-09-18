@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 import java.security.SecureRandom;
 import java.util.Base64;
 
-// OAuth 추가 회원가입 세션의 Redis Key로 사용할 예측 불가능한 랜덤 토큰을 생성
+// OAuth 추가 회원가입 토큰과 Refresh Token에 사용할 예측 불가능한 보안용 랜덤 토큰 생성
 @Component
 public class SecureTokenGenerator {
     private static final int TOKEN_BYTE_LENGTH = 32;

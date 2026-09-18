@@ -29,7 +29,7 @@ import java.util.Map;
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     @Value("${oauth.client-main}")
-    private String oAuthClientMain;
+    private String oauthClientMain;
     @Value("${oauth.client-signup}")
     private String oauthClientSignup;
 
@@ -62,13 +62,13 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
             response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
 
-            response.sendRedirect(oAuthClientMain);
+            response.sendRedirect(oauthClientMain);
             return;
         }
 
         // 추가 회원가입이 필요한 사용자
         if (userStatus == UserStatus.SIGNUP_REQUIRED) {
-            String joinType = (String)  attributes.get("joinType");
+            String joinType = (String) attributes.get("joinType");
 
             // Redis Key로 사용할 랜덤 signupToken 생성
             String signupToken = secureTokenGenerator.generate();

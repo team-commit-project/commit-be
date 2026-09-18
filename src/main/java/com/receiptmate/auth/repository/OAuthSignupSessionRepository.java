@@ -24,8 +24,7 @@ public class OAuthSignupSessionRepository {
         try {
             String value = objectMapper.writeValueAsString(session);
 
-            redisTemplate.opsForValue()
-                    .set(KEY_PREFIX + signupToken, value, TTL);
+            redisTemplate.opsForValue().set(KEY_PREFIX + signupToken, value, TTL);
 
         } catch (JacksonException e) {
             throw new IllegalStateException("OAuth 회원가입 세션 저장에 실패했습니다.", e);
@@ -33,8 +32,7 @@ public class OAuthSignupSessionRepository {
     }
 
     public Optional<OAuthSignupSession> find(String signupToken) {
-        String value = redisTemplate.opsForValue()
-                .get(KEY_PREFIX + signupToken);
+        String value = redisTemplate.opsForValue().get(KEY_PREFIX + signupToken);
 
         if (value == null) {
             return Optional.empty();
