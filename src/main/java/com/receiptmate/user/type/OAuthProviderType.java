@@ -8,14 +8,14 @@ import java.util.Optional;
 
 @Getter
 @RequiredArgsConstructor
-public enum OAuthProvider {
+public enum OAuthProviderType {
     KAKAO("kakao"),
     NAVER("naver"),
     GOOGLE("google");
 
     private final String registrationId;
 
-    public static Optional<OAuthProvider> fromRegistrationId(String registrationId) {
+    public static Optional<OAuthProviderType> fromRegistrationId(String registrationId) {
         return Arrays.stream(values())
                 .filter(provider -> provider.registrationId.equals(registrationId))
                 .findFirst();

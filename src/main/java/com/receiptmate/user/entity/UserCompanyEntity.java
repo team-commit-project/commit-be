@@ -1,7 +1,7 @@
 package com.receiptmate.user.entity;
 
 
-import com.receiptmate.user.type.OAuthProvider;
+import com.receiptmate.user.type.OAuthProviderType;
 import com.receiptmate.user.type.UserStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -23,7 +23,7 @@ public class UserCompanyEntity {
     private String snsId;
 
     @Enumerated(EnumType.STRING)
-    private OAuthProvider oauthProvider;
+    private OAuthProviderType oauthProvider;
 
     private String companyName;
 
@@ -42,13 +42,13 @@ public class UserCompanyEntity {
     @Enumerated(EnumType.STRING)
     private UserStatus userStatus;
 
-    private UserCompanyEntity(String snsId, OAuthProvider oauthProvider, UserStatus userStatus) {
+    private UserCompanyEntity(String snsId, OAuthProviderType oauthProvider, UserStatus userStatus) {
         this.snsId = snsId;
         this.oauthProvider = oauthProvider;
         this.userStatus = userStatus;
     }
 
-    public static UserCompanyEntity createOAuthUser(String snsId, OAuthProvider oauthProvider) {
+    public static UserCompanyEntity createOAuthUser(String snsId, OAuthProviderType oauthProvider) {
         return new UserCompanyEntity(snsId, oauthProvider, UserStatus.SIGNUP_REQUIRED);
     }
 }

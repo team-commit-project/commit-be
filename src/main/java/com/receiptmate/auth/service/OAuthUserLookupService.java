@@ -5,7 +5,7 @@ import com.receiptmate.common.exception.BusinessException;
 import com.receiptmate.common.exception.CommonErrorCode;
 import com.receiptmate.user.entity.UserCompanyEntity;
 import com.receiptmate.user.repository.UserCompanyRepository;
-import com.receiptmate.user.type.OAuthProvider;
+import com.receiptmate.user.type.OAuthProviderType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,7 +25,7 @@ public class OAuthUserLookupService {
     @Transactional
     public OAuthUserResult findUser(String registration, String snsId, Map<String, Object> providerAttributes) {
 
-        OAuthProvider oAuthProvider = OAuthProvider.valueOf(registration);
+        OAuthProviderType oAuthProvider = OAuthProviderType.valueOf(registration);
 
         Optional<UserCompanyEntity> existingUser = userCompanyRepository.findByOauthProviderAndSnsId(oAuthProvider, snsId);
 
