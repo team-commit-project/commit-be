@@ -9,6 +9,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.stereotype.Component;
 
 import jakarta.servlet.ServletException;
@@ -23,6 +25,7 @@ import java.util.Optional;
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserCompanyRepository userCompanyRepository;
+    private final CookieCsrfTokenRepository csrfTokenRepository;
 
     @Override
     public void onAuthenticationSuccess(
@@ -30,6 +33,15 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             HttpServletResponse response,
             Authentication authentication
     ) throws IOException, ServletException {
+
+        CsrfToken csrfToken =
+            csrfTokenRepository.generateToken(request);
+
+        csrfTokenRepository.saveToken(
+            csrfToken,
+            request,
+            response
+        );
 
         OAuth2AuthenticationToken oauth2Authentication =
                 (OAuth2AuthenticationToken) authentication;
