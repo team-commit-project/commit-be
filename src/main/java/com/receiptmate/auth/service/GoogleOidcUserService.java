@@ -58,6 +58,19 @@ public class GoogleOidcUserService extends OidcUserService {
                     e
             );
 
+        } catch (RuntimeException e) {
+            log.error(
+                    "Google OAuth 사용자 처리 중 예상하지 못한 오류가 발생했습니다. provider={}, snsId={}",
+                    registration,
+                    snsId,
+                    e
+            );
+
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error(CommonErrorCode.INTERNAL_SERVER_ERROR.getCode()),
+                    CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage(),
+                    e
+            );
         }
 
         return new CustomOidcUser(result.getUserId(), oidcUser, result.getUserStatus());

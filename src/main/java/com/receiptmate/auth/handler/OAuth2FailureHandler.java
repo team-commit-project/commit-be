@@ -43,6 +43,12 @@ public class OAuth2FailureHandler implements AuthenticationFailureHandler {
                 return;
             }
 
+            // 예기치 못한 서버 내부 오류
+            if (CommonErrorCode.INTERNAL_SERVER_ERROR.getCode().equals(errorCode)) {
+                writeError(response, CommonErrorCode.INTERNAL_SERVER_ERROR);
+                return;
+            }
+
             // 그 외 OAuth 인증 자체 실패
             response.sendRedirect(oauthClientLogin + "?error=oauth_failed");
         }

@@ -59,6 +59,19 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
                     e
             );
 
+        } catch (RuntimeException e) {
+            log.error(
+                    "OAuth 사용자 처리 중 예상하지 못한 오류가 발생했습니다. provider={}, snsId={}",
+                    registration,
+                    snsId,
+                    e
+            );
+
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error(CommonErrorCode.INTERNAL_SERVER_ERROR.getCode()),
+                    CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage(),
+                    e
+            );
         }
 
         return new CustomOAuth2User(result.getUserId(), result.getSnsId(), result.getAttributes(), result.getUserStatus());
