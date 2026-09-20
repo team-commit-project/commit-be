@@ -53,7 +53,8 @@ class OAuth2FailureHandlerTest {
         assertThat(response.getStatus()).isEqualTo(CommonErrorCode.DATABASE_ERROR.getHttpStatus().value());
         assertThat(response.getContentAsString())
                 .contains(CommonErrorCode.DATABASE_ERROR.getCode())
-                .contains(CommonErrorCode.DATABASE_ERROR.getMessage());
+                .contains(CommonErrorCode.DATABASE_ERROR.getMessage()
+        );
     }
 
     @Test
@@ -67,5 +68,22 @@ class OAuth2FailureHandlerTest {
 
         // then
         assertThat(response.getRedirectedUrl()).isEqualTo(CLIENT_LOGIN + "?error=oauth_failed");
+    }
+
+    @Test
+    @DisplayName("OAuth 처리 중 예상하지 못한 내부 오류가 발생하면 500과 에러 정보를 반환")
+    public void internalServerError() throws Exception {
+        // given
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(new OAuth2Error(CommonErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+
+        // when
+        oauth2FailureHandler.onAuthenticationFailure(request, response, exception);
+
+        // then
+        assertThat(response.getStatus()).isEqualTo(CommonErrorCode.DATABASE_ERROR.getHttpStatus().value());
+        assertThat(response.getContentAsString())
+                .contains(CommonErrorCode.INTERNAL_SERVER_ERROR.getCode())
+                .contains(CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage()
+        );
     }
 }
