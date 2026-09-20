@@ -15,6 +15,13 @@ public enum AuthErrorCode implements ErrorCode {
             "지원하지 않는 SNS 로그인 방식입니다."
     ),
 
+    INVALID_REFRESH_TOKEN(
+            HttpStatus.UNAUTHORIZED,
+            "INVALID_REFRESH_TOKEN",
+            "로그인이 만료되었습니다. 다시 로그인해주세요."
+
+    ),
+
     SIGNUP_SESSION_EXPIRED(
             HttpStatus.UNAUTHORIZED,
             "SIGNUP_SESSION_EXPIRED",

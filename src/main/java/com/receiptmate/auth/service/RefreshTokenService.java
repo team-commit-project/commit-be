@@ -4,12 +4,8 @@ import com.receiptmate.auth.exception.AuthErrorCode;
 import com.receiptmate.auth.generator.SecureTokenGenerator;
 import com.receiptmate.auth.repository.RefreshTokenRepository;
 import com.receiptmate.common.exception.BusinessException;
-import com.receiptmate.common.exception.CommonErrorCode;
-import com.receiptmate.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -44,7 +40,7 @@ public class RefreshTokenService {
         Optional<Long> userId = refreshTokenRepository.findUserId(refreshTokenHash);
 
         if (userId.isEmpty()) {
-            throw new BusinessException(CommonErrorCode.INTERNAL_SERVER_ERROR);
+            throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         return userId.get();
