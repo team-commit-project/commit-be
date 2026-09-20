@@ -30,7 +30,7 @@ public class AuthCookieProvider {
                 .secure(cookieSecure)
                 .sameSite("Lax")
                 .path("/api/v1/auth")
-                .maxAge(Duration.ofDays(1))
+                .maxAge(Duration.ofMinutes(10))
                 .build();
     }
 
