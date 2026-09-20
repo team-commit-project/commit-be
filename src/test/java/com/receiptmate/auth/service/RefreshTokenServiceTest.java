@@ -1,7 +1,9 @@
 package com.receiptmate.auth.service;
 
+import com.receiptmate.auth.exception.AuthErrorCode;
 import com.receiptmate.auth.generator.SecureTokenGenerator;
 import com.receiptmate.auth.repository.RefreshTokenRepository;
+import com.receiptmate.common.exception.BusinessException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -67,6 +69,25 @@ class RefreshTokenServiceTest {
 
         // then
         assertThat(result).isEqualTo(userId);
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 Refresh Token이면 인증 예외 발생")
+    public void validateInvalidRefreshToken() throws Exception {
+        // given
+        String refreshToken = "invalid-refresh-token";
+        String refreshTokenHash = sha256(refreshToken);
+
+        given(refreshTokenRepository.findUserId(refreshTokenHash))
+                .willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> refreshTokenService.validate(refreshToken))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> {
+                    BusinessException businessException = (BusinessException) exception;
+                    assertThat(businessException.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN);
+                });
     }
 
     private String sha256(String value) throws Exception {
