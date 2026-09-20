@@ -28,7 +28,7 @@ public class OAuth2FailureHandler implements AuthenticationFailureHandler {
     private final ObjectMapper objectMapper;
 
     @Value("${oauth.client-login}")
-    private String oAuthClientLogin;
+    private String oauthClientLogin;
 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
@@ -44,7 +44,7 @@ public class OAuth2FailureHandler implements AuthenticationFailureHandler {
             }
 
             // 그 외 OAuth 인증 자체 실패
-            response.sendRedirect(oAuthClientLogin + "?error=oauth_failed");
+            response.sendRedirect(oauthClientLogin + "?error=oauth_failed");
         }
     }
 
