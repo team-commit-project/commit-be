@@ -34,4 +34,15 @@ public class AuthCookieProvider {
                 .build();
     }
 
+    public ResponseCookie createSignupTokenDeletionCookie() {
+        return ResponseCookie
+                .from("signupToken", "")
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite("Lax")
+                .path("/api/v1/auth")
+                .maxAge(Duration.ZERO)
+                .build();
+    }
+
 }

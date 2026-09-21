@@ -3,6 +3,7 @@ package com.receiptmate.common.exception;
 import com.receiptmate.common.response.ResponseDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -43,6 +44,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(errorCode.getHttpStatus())
                 .body(response);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ResponseDto> handleMethodNotAllowed(
+            HttpRequestMethodNotSupportedException e
+    ) {
+
+        log.warn("지원하지 않는 HTTP 메서드 요청입니다. method={}", e.getMethod());
+
+        CommonErrorCode errorCode = CommonErrorCode.METHOD_NOT_ALLOWED;
+
+        return ResponseEntity
+                .status(errorCode.getHttpStatus())
+                .body(new ResponseDto(
+                        errorCode.getCode(),
+                        errorCode.getMessage()
+                ));
     }
 
     @ExceptionHandler(Exception.class)
