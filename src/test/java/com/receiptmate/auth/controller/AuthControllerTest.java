@@ -55,6 +55,16 @@ class AuthControllerTest {
     private JwtProvider jwtProvider;
 
     @Test
+    @DisplayName("지원하지 않는 SNS 로그인 방식은 400과 에러 정보를 반환")
+    public void unsupportedProvider() throws Exception {
+        String provider = "instagram";
+        mockMvc.perform(get("/api/v1/auth/sns/" + provider))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(AuthErrorCode.UNSUPPORTED_SNS_PROVIDER.getCode()))
+                .andExpect(jsonPath("$.message").value(AuthErrorCode.UNSUPPORTED_SNS_PROVIDER.getMessage()));
+    }
+
+    @Test
     @DisplayName("추가 회원가입을 완료하면 Refresh Token 쿠키를 발급하고 signupToken 쿠키를 삭제하며 CSRF Token을 새로 발급")
     public void completesSignup() throws Exception {
         // given

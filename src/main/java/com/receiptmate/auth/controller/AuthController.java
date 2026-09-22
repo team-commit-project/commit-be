@@ -2,19 +2,21 @@ package com.receiptmate.auth.controller;
 
 import com.receiptmate.auth.dto.request.SignupCompleteRequest;
 import com.receiptmate.auth.dto.response.SignupCompleteResponse;
+import com.receiptmate.auth.exception.AuthErrorCode;
 import com.receiptmate.auth.provider.AuthCookieProvider;
 import com.receiptmate.auth.provider.CsrfTokenProvider;
 import com.receiptmate.auth.service.AuthService;
+import com.receiptmate.common.exception.BusinessException;
+import com.receiptmate.user.type.OAuthProviderType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
-import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
+import java.util.Optional;
 
 @RestController
 @RequiredArgsConstructor
@@ -24,6 +26,17 @@ public class AuthController {
     private final AuthService authService;
     private final AuthCookieProvider authCookieProvider;
     private final CsrfTokenProvider csrfTokenProvider;
+
+    @GetMapping("/sns/{provider}")
+    public void login(@PathVariable("provider") String provider, HttpServletResponse response) throws IOException {
+        Optional<OAuthProviderType> matchedProvider = OAuthProviderType.fromRegistrationId(provider);
+
+        OAuthProviderType oauthProvider = matchedProvider.orElseThrow(() ->
+                new BusinessException(AuthErrorCode.UNSUPPORTED_SNS_PROVIDER)
+        );
+
+        response.sendRedirect("/oauth2/authorization/" + oauthProvider.getRegistrationId());
+    }
 
     @PatchMapping(value = "/signup-complete")
     public SignupCompleteResponse completeSignup(
