@@ -14,6 +14,12 @@ public enum CommonErrorCode implements ErrorCode{
             "입력값을 다시 확인해주세요."
     ),
 
+    METHOD_NOT_ALLOWED(
+            HttpStatus.METHOD_NOT_ALLOWED,
+            "METHOD_NOT_ALLOWED",
+            "지원하지 않는 HTTP 메서드입니다."
+    ),
+
     DATABASE_ERROR(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "DATABASE_ERROR",

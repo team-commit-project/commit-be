@@ -73,6 +73,9 @@ public class WebSecurityConfig {
 
                 // 요청 접근 권한
                 .authorizeHttpRequests(request -> request
+
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/auth/signup-complete").permitAll()
+
                         // OAuth 로그인 시작
                         .requestMatchers("/api/v1/auth/**").permitAll()
 
@@ -80,6 +83,7 @@ public class WebSecurityConfig {
                         .requestMatchers("/login/oauth2/code/**").permitAll()
 
                         .anyRequest().authenticated()
+
                 )
 
                 // OAuth2 로그인
@@ -115,7 +119,7 @@ public class WebSecurityConfig {
         );
 
         configuration.setAllowedMethods(
-                List.of("GET", "POST", "PUT", "DELETE")
+                List.of("GET", "POST", "PUT", "DELETE", "PATCH")
         );
 
         configuration.setAllowedHeaders(

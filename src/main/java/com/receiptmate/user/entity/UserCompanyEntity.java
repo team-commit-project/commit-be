@@ -51,4 +51,18 @@ public class UserCompanyEntity {
     public static UserCompanyEntity createOAuthUser(String snsId, OAuthProviderType oauthProvider) {
         return new UserCompanyEntity(snsId, oauthProvider, UserStatus.SIGNUP_REQUIRED);
     }
+
+    public void updateSignupInfo(String companyName, String businessNumber, String businessType,
+                                 String phoneNumber, Integer monthlyExpenseBudget, LocalDate receiptStartDate) {
+        this.companyName = companyName;
+        this.businessNumber = businessNumber;
+        this.businessType = businessType;
+        this.phoneNumber = phoneNumber;
+        this.monthlyExpenseBudget = monthlyExpenseBudget;
+        this.receiptStartDate = receiptStartDate;
+    }
+
+    public void completeSignup() {
+        this.userStatus = UserStatus.ACTIVE;
+    }
 }
