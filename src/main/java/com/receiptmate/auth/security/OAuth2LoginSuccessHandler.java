@@ -3,8 +3,11 @@ package com.receiptmate.auth.security;
 import com.receiptmate.user.entity.OAuthProvider;
 import com.receiptmate.user.entity.UserCompany;
 import com.receiptmate.user.repository.UserCompanyRepository;
+import com.receiptmate.auth.service.RefreshTokenService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -13,9 +16,11 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.stereotype.Component;
 
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.util.Optional;
 
@@ -26,6 +31,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserCompanyRepository userCompanyRepository;
     private final CookieCsrfTokenRepository csrfTokenRepository;
+    private final RefreshTokenProvider refreshTokenProvider;
+    private final RefreshTokenService refreshTokenService;
 
     @Override
     public void onAuthenticationSuccess(
@@ -44,7 +51,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         );
 
         OAuth2AuthenticationToken oauth2Authentication =
-                (OAuth2AuthenticationToken) authentication;
+        (OAuth2AuthenticationToken) authentication;
 
         OAuth2User oauth2User = oauth2Authentication.getPrincipal();
 
@@ -61,6 +68,26 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         log.info("SNS 로그인 성공 - provider={}, snsId={}",
                 oauthProvider, snsId);
+
+        String refreshToken = refreshTokenProvider.generateToken();
+
+        refreshTokenService.save(
+                refreshToken,
+                oauthProvider,
+                snsId
+        );
+
+        Cookie refreshTokenCookie = new Cookie(
+                "refreshToken",
+                refreshToken
+        );
+
+        refreshTokenCookie.setHttpOnly(true);
+        refreshTokenCookie.setSecure(false);
+        refreshTokenCookie.setPath("/");
+        refreshTokenCookie.setMaxAge(60 * 60 * 24 * 14);
+
+        response.addCookie(refreshTokenCookie);
 
         Optional<UserCompany> user =
                 userCompanyRepository.findByOauthProviderAndSnsId(
