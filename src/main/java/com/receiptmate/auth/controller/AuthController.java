@@ -1,6 +1,8 @@
 package com.receiptmate.auth.controller;
 
+import com.receiptmate.auth.dto.AccessTokenReissueResult;
 import com.receiptmate.auth.dto.request.SignupCompleteRequest;
+import com.receiptmate.auth.dto.response.AccessTokenReissueResponse;
 import com.receiptmate.auth.dto.response.SignupCompleteResponse;
 import com.receiptmate.auth.exception.AuthErrorCode;
 import com.receiptmate.auth.provider.AuthCookieProvider;
@@ -55,5 +57,26 @@ public class AuthController {
         csrfTokenProvider.issue(request, response);
 
         return new SignupCompleteResponse();
+    }
+
+    @PostMapping("/reissue")
+    public AccessTokenReissueResponse reissue(
+            @CookieValue("refreshToken") String refreshToken,
+            HttpServletResponse response
+    ) {
+        AccessTokenReissueResult result = authService.reissue(refreshToken);
+
+        response.addHeader(
+                HttpHeaders.SET_COOKIE,
+                authCookieProvider.createRefreshTokenCookie(
+                        result.getRefreshToken(),
+                        result.getRefreshTokenTtl()
+                ).toString()
+        );
+
+        return new AccessTokenReissueResponse(
+                result.getAccessToken(),
+                result.getExpiration()
+        );
     }
 }

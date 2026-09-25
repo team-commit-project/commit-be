@@ -1,21 +1,25 @@
 package com.receiptmate.auth.service;
 
+import com.receiptmate.auth.dto.RotatedRefreshToken;
 import com.receiptmate.auth.exception.AuthErrorCode;
 import com.receiptmate.auth.generator.SecureTokenGenerator;
 import com.receiptmate.auth.repository.RefreshTokenRepository;
 import com.receiptmate.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Optional;
 
-@Service
+
 @Slf4j
+@Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
@@ -44,6 +48,22 @@ public class RefreshTokenService {
         }
 
         return userId.get();
+    }
+
+    public RotatedRefreshToken rotate(String refreshToken, Long userId) {
+
+        String newRefreshToken = secureTokenGenerator.generate();
+
+        String oldRefreshTokenHash = hash(refreshToken);
+        String newRefreshTokenHash = hash(newRefreshToken);
+
+        Optional<Duration> remainingTtl = refreshTokenRepository.rotate(oldRefreshTokenHash, newRefreshTokenHash, userId);
+
+        if (remainingTtl.isEmpty()) {
+            throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        return new RotatedRefreshToken(newRefreshToken, remainingTtl.get());
     }
 
     private String hash(String refreshToken) {

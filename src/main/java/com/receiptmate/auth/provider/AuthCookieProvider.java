@@ -12,7 +12,7 @@ public class AuthCookieProvider {
     @Value("${security.cookie.secure}")
     private boolean cookieSecure;
 
-    public ResponseCookie createRefreshTokenCookie(final String refreshToken) {
+    public ResponseCookie createRefreshTokenCookie(String refreshToken) {
         return ResponseCookie
                 .from("refreshToken", refreshToken)
                 .httpOnly(true)
@@ -23,7 +23,18 @@ public class AuthCookieProvider {
                 .build();
     }
 
-    public ResponseCookie createSignupTokenCookie(final String signupToken) {
+    public ResponseCookie createRefreshTokenCookie(String refreshToken, Duration remainingTtl) {
+        return ResponseCookie
+                .from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite("Lax")
+                .path("/api/v1/auth")
+                .maxAge(remainingTtl)
+                .build();
+    }
+
+    public ResponseCookie createSignupTokenCookie(String signupToken) {
         return ResponseCookie
                 .from("signupToken", signupToken)
                 .httpOnly(true)

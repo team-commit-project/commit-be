@@ -1,7 +1,5 @@
 package com.receiptmate.auth.provider;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -11,7 +9,6 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
 
@@ -21,19 +18,20 @@ public class JwtProvider {
     @Value("${jwt.secret}")
     private String secretKey;
 
-    // Access Token 생성
-    public String create(String userId, String userStatus) {
-        Date expiration =
-                Date.from(Instant.now().plus(10, ChronoUnit.MINUTES));
+    @Value("${jwt.access-token-expiration-seconds}")
+    private long accessTokenExpirationSeconds;
+
+    public String createAccessToken(Long userId) {
+        Instant issuedAt = Instant.now();
+        Date expiration = Date.from(issuedAt.plusSeconds(accessTokenExpirationSeconds));
 
         Key key = Keys.hmacShaKeyFor(
                 secretKey.getBytes(StandardCharsets.UTF_8)
         );
 
         return Jwts.builder()
-                .claim("userId", userId)
-                .claim("userStatus", userStatus)
-                .setIssuedAt(new Date())
+                .setSubject(String.valueOf(userId))
+                .setIssuedAt(Date.from(issuedAt))
                 .setExpiration(expiration)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
@@ -52,5 +50,9 @@ public class JwtProvider {
                 .parseClaimsJws(jwt)
                 .getBody()
                 .getSubject();
+    }
+
+    public long getAccessTokenExpirationSeconds() {
+        return accessTokenExpirationSeconds;
     }
 }
