@@ -1,5 +1,6 @@
 package com.receiptmate.auth.service;
 
+import com.receiptmate.auth.dto.RotatedRefreshToken;
 import com.receiptmate.auth.exception.AuthErrorCode;
 import com.receiptmate.auth.generator.SecureTokenGenerator;
 import com.receiptmate.auth.repository.RefreshTokenRepository;
@@ -15,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Optional;
 
@@ -90,6 +92,66 @@ class RefreshTokenServiceTest {
                 });
     }
 
+    @Test
+    @DisplayName("Refresh Token 교체에 성공하면 새 토큰과 기존 토큰의 남은 TTL을 반환")
+    public void rotateRefreshToken() throws Exception {
+        // given
+        String oldRefreshToken = "old-refresh-token";
+        String newRefreshToken = "new-refresh-token";
+        Long userId = 1L;
+        Duration remainingTtl = Duration.ofHours(12);
+
+        String expectedOldHash = sha256(oldRefreshToken);
+        String expectedNewHash = sha256(newRefreshToken);
+
+        given(secureTokenGenerator.generate()).willReturn(newRefreshToken);
+
+        given(refreshTokenRepository.rotate(
+                expectedOldHash,
+                expectedNewHash,
+                userId
+        )).willReturn(Optional.of(remainingTtl));
+
+        // when
+        RotatedRefreshToken result = refreshTokenService.rotate(oldRefreshToken, userId);
+
+         // then
+        assertThat(result.getRefreshToken()).isEqualTo(newRefreshToken);
+        assertThat(result.getRemainingTtl()).isEqualTo(remainingTtl);
+        then(secureTokenGenerator).should().generate();
+        then(refreshTokenRepository).should().rotate(expectedOldHash, expectedNewHash, userId);
+    }
+
+    @Test
+    @DisplayName("기존 Refresh Token이 유효하지 않으면 교체를 거부")
+    public void rotateRefreshTokenWithInvalidToken() throws Exception {
+        // given
+        String oldRefreshToken = "old-refresh-token";
+        String newRefreshToken = "new-refresh-token";
+        Long userId = 1L;
+
+        String expectedOldHash = sha256(oldRefreshToken);
+        String expectedNewHash = sha256(newRefreshToken);
+
+        given(secureTokenGenerator.generate()).willReturn(newRefreshToken);
+        given(refreshTokenRepository.rotate(
+                expectedOldHash,
+                expectedNewHash,
+                userId
+        )).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> refreshTokenService.rotate(oldRefreshToken, userId))
+            .isInstanceOf(BusinessException.class)
+            .satisfies(exception ->
+                    assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN)
+        );
+
+        then(secureTokenGenerator).should().generate();
+        then(refreshTokenRepository).should().rotate(expectedOldHash, expectedNewHash, userId);
+    }
+
     private String sha256(String value) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
 
@@ -97,5 +159,4 @@ class RefreshTokenServiceTest {
 
         return Base64.getEncoder().encodeToString(hashBytes);
     }
-
 }
