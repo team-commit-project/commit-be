@@ -5,6 +5,10 @@ spring:
     password: ${TEST_DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  data:
+    redis:
+      database: 15
+
   jpa:
     hibernate:
       ddl-auto: validate
