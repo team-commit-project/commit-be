@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(MockitoExtension.class)
 class OAuth2FailureHandlerTest {
 
-    private static final String CLIENT_LOGIN = "httpL//localhost:3000/login";
+    private static final String CLIENT_LOGIN = "http//localhost:3000/login";
 
     private OAuth2FailureHandler oauth2FailureHandler;
 
@@ -43,8 +43,10 @@ class OAuth2FailureHandlerTest {
     @DisplayName("OAuth 처리 중 DB 오류가 발생하면 500과 에러 정보를 반환")
     public void databaseError() throws Exception {
         // given
-        OAuth2AuthenticationException exception =
-                new OAuth2AuthenticationException(new OAuth2Error(CommonErrorCode.DATABASE_ERROR.getCode()));
+        CommonErrorCode errorCode = CommonErrorCode.DATABASE_ERROR;
+        OAuth2Error oAUth2Error = new OAuth2Error(errorCode.getCode());
+
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(oAUth2Error);
 
         // when
         oauth2FailureHandler.onAuthenticationFailure(request, response, exception);
@@ -61,7 +63,9 @@ class OAuth2FailureHandlerTest {
     @DisplayName("OAuth 인증 자체가 실패하면 로그인 페이지로 리다이렉트")
     public void oauthAuthenticationFailure() throws Exception {
         // given
-        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(new OAuth2Error("oauth_failed"));
+        OAuth2Error oAUth2Error = new OAuth2Error("oauth_failed");
+
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(oAUth2Error);
 
         // when
         oauth2FailureHandler.onAuthenticationFailure(request, response, exception);
@@ -74,13 +78,16 @@ class OAuth2FailureHandlerTest {
     @DisplayName("OAuth 처리 중 예상하지 못한 내부 오류가 발생하면 500과 에러 정보를 반환")
     public void internalServerError() throws Exception {
         // given
-        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(new OAuth2Error(CommonErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        CommonErrorCode errorCode = CommonErrorCode.INTERNAL_SERVER_ERROR;
+        OAuth2Error oAUth2Error = new OAuth2Error(errorCode.getCode());
+
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(oAUth2Error);
 
         // when
         oauth2FailureHandler.onAuthenticationFailure(request, response, exception);
 
         // then
-        assertThat(response.getStatus()).isEqualTo(CommonErrorCode.DATABASE_ERROR.getHttpStatus().value());
+        assertThat(response.getStatus()).isEqualTo(CommonErrorCode.INTERNAL_SERVER_ERROR.getHttpStatus().value());
         assertThat(response.getContentAsString())
                 .contains(CommonErrorCode.INTERNAL_SERVER_ERROR.getCode())
                 .contains(CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage()

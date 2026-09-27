@@ -7,7 +7,6 @@ import com.receiptmate.auth.repository.RefreshTokenRepository;
 import com.receiptmate.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -18,7 +17,6 @@ import java.util.Base64;
 import java.util.Optional;
 
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
