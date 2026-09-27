@@ -189,7 +189,7 @@ public class AuthController {
                                 "SUCCESS",
                                 "요청이 성공적으로 처리되었습니다.",
                                 accessToken,
-                                300L
+                                1800L
                         );
 
                         return ResponseEntity.ok(response);
