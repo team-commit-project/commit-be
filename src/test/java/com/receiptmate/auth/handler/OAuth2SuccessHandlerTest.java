@@ -2,11 +2,13 @@ package com.receiptmate.auth.handler;
 
 import com.receiptmate.auth.dto.OAuthSignupSession;
 import com.receiptmate.auth.entity.OAuthPrincipal;
+import com.receiptmate.auth.exception.RedisOperationException;
 import com.receiptmate.auth.generator.SecureTokenGenerator;
 import com.receiptmate.auth.provider.AuthCookieProvider;
 import com.receiptmate.auth.provider.CsrfTokenProvider;
 import com.receiptmate.auth.repository.OAuthSignupSessionRepository;
 import com.receiptmate.auth.service.RefreshTokenService;
+import com.receiptmate.common.exception.CommonErrorCode;
 import com.receiptmate.user.type.UserStatus;
 import jakarta.servlet.ServletException;
 import org.assertj.core.api.Assertions;
@@ -23,6 +25,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
@@ -148,6 +151,33 @@ class OAuth2SuccessHandlerTest {
         assertThat(response.getHeader(HttpHeaders.SET_COOKIE)).isEqualTo(signupTokenCookie.toString());
 
         assertThat(response.getRedirectedUrl()).isEqualTo(CLIENT_SIGNUP);
+    }
+
+    @Test
+    @DisplayName("Refresh Token 저장 실패 시 내부 서버 오류로 반환")
+    public void activeUserRedisFailure() throws Exception {
+        // given
+        Long userId = 1L;
+
+        RedisOperationException redisException = new RedisOperationException("Redis 저장 실패");
+
+        givenOAuthUserStatus(UserStatus.ACTIVE);
+        given(oAuthPrincipal.getUserId()).willReturn(userId);
+
+        given(refreshTokenService.issue(userId)).willThrow(redisException);
+
+        // when &  then
+        assertThatThrownBy(() -> oAuth2SuccessHandler.onAuthenticationSuccess(request, response, authentication))
+                .isInstanceOfSatisfying(
+                        OAuth2AuthenticationException.class
+                        , e -> {
+                            assertThat(e.getError().getErrorCode()).isEqualTo(CommonErrorCode.INTERNAL_SERVER_ERROR.getCode());
+                            assertThat(e.getCause()).isSameAs(redisException);
+                        }
+        );
+
+        then(authCookieProvider).shouldHaveNoInteractions();
+        assertThat(response.getRedirectedUrl()).isNull();
     }
 
     private void givenOAuthUserStatus(UserStatus userStatus) {

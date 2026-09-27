@@ -3,11 +3,13 @@ package com.receiptmate.auth.handler;
 import com.receiptmate.auth.dto.OAuthSignupSession;
 import com.receiptmate.auth.entity.CustomOAuth2User;
 import com.receiptmate.auth.entity.OAuthPrincipal;
+import com.receiptmate.auth.exception.RedisOperationException;
 import com.receiptmate.auth.generator.SecureTokenGenerator;
 import com.receiptmate.auth.provider.AuthCookieProvider;
 import com.receiptmate.auth.provider.CsrfTokenProvider;
 import com.receiptmate.auth.repository.OAuthSignupSessionRepository;
 import com.receiptmate.auth.service.RefreshTokenService;
+import com.receiptmate.common.exception.CommonErrorCode;
 import com.receiptmate.user.type.UserStatus;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +19,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
@@ -55,13 +59,21 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         if (userStatus == UserStatus.ACTIVE) {
 
             // Refresh Token 발급 + Redis 저장
-            String refreshToken = refreshTokenService.issue(userId);
+            String refreshToken;
+
+            try {
+
+                refreshToken = refreshTokenService.issue(userId);
+
+            } catch (RuntimeException e) {
+
+                throw internalServerError(e);
+
+            }
 
             // Redis Token 원문은 HttpOnly Cookie에 저장
             ResponseCookie refreshTokenCookie = authCookieProvider.createRefreshTokenCookie(refreshToken);
-
             response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
-
             response.sendRedirect(oauthClientMain);
             return;
         }
@@ -75,17 +87,28 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
             // OAuth 회원가입 정보는 Redis에 저장
             OAuthSignupSession signupSession = new OAuthSignupSession(snsId, joinType);
-            oAuthSignupSessionRepository.save(signupToken, signupSession);
+            try {
+
+                oAuthSignupSessionRepository.save(signupToken, signupSession);
+
+            } catch (RuntimeException e) {
+
+                throw internalServerError(e);
+
+            }
 
             // 브라우저에 signupToken만 HttpOnly Cookie로 전달
             ResponseCookie signupTokenCookie = authCookieProvider.createSignupTokenCookie(signupToken);
-
             response.addHeader(
                     HttpHeaders.SET_COOKIE,
                     signupTokenCookie.toString()
             );
-
             response.sendRedirect(oauthClientSignup);
         }
+    }
+
+    private OAuth2AuthenticationException internalServerError(Exception e) {
+        CommonErrorCode errorCode = CommonErrorCode.INTERNAL_SERVER_ERROR;
+        return new OAuth2AuthenticationException(new OAuth2Error(errorCode.getCode()), errorCode.getMessage(), e);
     }
 }

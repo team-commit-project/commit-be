@@ -86,8 +86,7 @@ public class RefreshTokenRepository {
         try {
             return Optional.of(Long.parseLong(userId));
         } catch (NumberFormatException e) {
-            log.error("Redis에 저장된 Refresh Token의 userId 형식 오류", e);
-            throw new RedisOperationException("Redis에 저장된 userId 형식이 올바르지 않습니다.", e);
+            throw new IllegalStateException("Redis에 저장된 userId 형식이 올바르지 않습니다.", e);
         }
     }
 
@@ -113,12 +112,12 @@ public class RefreshTokenRepository {
         }
 
         // 기존 Refresh Token이 유효하지 않은 경우
-        if (remainingMillis == -1L) {
+        if (remainingMillis == ROTATE_INVALID_TOKEN) {
             return Optional.empty();
         }
 
         // 새 Refresh Token 키 충돌
-        if (remainingMillis == -2L) {
+        if (remainingMillis == ROTATE_KEY_CONFLICT) {
             log.error("Refresh Token 교체 실패 - 새 Refresh Token 키 충돌");
             throw new RedisOperationException("새 Refresh Token 키가 이미 존재합니다.");
         }
