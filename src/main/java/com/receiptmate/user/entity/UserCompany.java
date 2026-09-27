@@ -46,6 +46,65 @@ public class UserCompany {
     private String lastLoginRegion;
 
     // enum으로 변경
+    @Enumerated(EnumType.STRING)
     @Column(name = "user_status", nullable = false, length = 50)
-    private String userStatus; 
+    private UserStatus userStatus;
+
+    public UserCompany(
+        String snsId,
+        OAuthProvider oauthProvider,
+        String companyName,
+        String businessNumber,
+        String businessType,
+        String phoneNumber,
+        Integer monthlyExpenseBudget,
+        LocalDate receiptStartDate,
+        UserStatus userStatus
+    ) {
+        this.snsId = snsId;
+        this.oauthProvider = oauthProvider;
+        this.companyName = companyName;
+        this.businessNumber = businessNumber;
+        this.businessType = businessType;
+        this.phoneNumber = phoneNumber;
+        this.monthlyExpenseBudget = monthlyExpenseBudget;
+        this.receiptStartDate = receiptStartDate;
+        this.userStatus = userStatus;
+    }
+
+    public UserCompany(
+        String snsId,
+        OAuthProvider oauthProvider,
+        UserStatus userStatus
+    ) {
+        this.snsId = snsId;
+        this.oauthProvider = oauthProvider;
+        this.userStatus = userStatus;
+    }
+
+    public boolean isAdditionalInfoCompleted() {
+      return companyName != null
+            && businessNumber != null
+            && businessType != null
+            && phoneNumber != null
+            && monthlyExpenseBudget != null
+            && receiptStartDate != null;
+    }
+
+    public void completeSignup(
+        String companyName,
+        String businessNumber,
+        String businessType,
+        String phoneNumber,
+        Integer monthlyExpenseBudget,
+        LocalDate receiptStartDate
+    ) {
+        this.companyName = companyName;
+        this.businessNumber = businessNumber;
+        this.businessType = businessType;
+        this.phoneNumber = phoneNumber;
+        this.monthlyExpenseBudget = monthlyExpenseBudget;
+        this.receiptStartDate = receiptStartDate;
+        this.userStatus = UserStatus.ACTIVE;
+    }
 }

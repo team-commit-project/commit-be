@@ -10,11 +10,16 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 @Configuration
 public class SecurityConfig {
 
-  private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final CsrfAccessDeniedHandler csrfAccessDeniedHandler;
 
-  public SecurityConfig(OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) {
-    this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
-  }
+    public SecurityConfig(
+            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
+            CsrfAccessDeniedHandler csrfAccessDeniedHandler
+    ) {
+        this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
+        this.csrfAccessDeniedHandler = csrfAccessDeniedHandler;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -35,7 +40,11 @@ public class SecurityConfig {
             })
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/authgits/sns/**").permitAll()
+                .requestMatchers("/api/v1/auth/signup-complete").permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(exception -> exception
+                .accessDeniedHandler(csrfAccessDeniedHandler)
             )
             .oauth2Login(oauth2 -> oauth2
                 .successHandler(oAuth2LoginSuccessHandler)

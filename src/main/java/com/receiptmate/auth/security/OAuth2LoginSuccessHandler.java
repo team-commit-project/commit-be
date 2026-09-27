@@ -4,6 +4,9 @@ import com.receiptmate.user.entity.OAuthProvider;
 import com.receiptmate.user.entity.UserCompany;
 import com.receiptmate.user.repository.UserCompanyRepository;
 import com.receiptmate.auth.service.RefreshTokenService;
+import com.receiptmate.auth.security.JwtTokenProvider;
+import com.receiptmate.auth.service.SignupTokenService;
+import com.receiptmate.user.entity.UserStatus;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,8 +18,8 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.stereotype.Component;
+import org.springframework.http.ResponseCookie;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -31,8 +34,14 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserCompanyRepository userCompanyRepository;
     private final CookieCsrfTokenRepository csrfTokenRepository;
+
     private final RefreshTokenProvider refreshTokenProvider;
     private final RefreshTokenService refreshTokenService;
+
+    private final JwtTokenProvider jwtTokenProvider;
+
+    private final SignupTokenProvider signupTokenProvider;
+    private final SignupTokenService signupTokenService;
 
     @Override
     public void onAuthenticationSuccess(
@@ -41,6 +50,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             Authentication authentication
     ) throws IOException, ServletException {
 
+        // CSRF 토큰 발급
         CsrfToken csrfToken =
             csrfTokenRepository.generateToken(request);
 
@@ -69,26 +79,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         log.info("SNS 로그인 성공 - provider={}, snsId={}",
                 oauthProvider, snsId);
 
-        String refreshToken = refreshTokenProvider.generateToken();
-
-        refreshTokenService.save(
-                refreshToken,
-                oauthProvider,
-                snsId
-        );
-
-        Cookie refreshTokenCookie = new Cookie(
-                "refreshToken",
-                refreshToken
-        );
-
-        refreshTokenCookie.setHttpOnly(true);
-        refreshTokenCookie.setSecure(false);
-        refreshTokenCookie.setPath("/");
-        refreshTokenCookie.setMaxAge(60 * 60 * 24 * 14);
-
-        response.addCookie(refreshTokenCookie);
-
+        // 회원 조회
         Optional<UserCompany> user =
                 userCompanyRepository.findByOauthProviderAndSnsId(
                         oauthProvider,
@@ -97,9 +88,66 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         // 1. 신규 회원
         if (user.isEmpty()) {
-            log.info("신규 회원입니다. 추가 정보 입력이 필요합니다.");
-            response.sendRedirect("/signup");
-            return;
+
+        log.info("신규 회원입니다. 추가 정보 입력이 필요합니다.");
+
+        UserCompany newUser = new UserCompany(
+                snsId,
+                oauthProvider,
+                UserStatus.SIGNUP_REQUIRED
+        );
+
+        UserCompany savedUser =
+                userCompanyRepository.save(newUser);
+
+        log.info("신규 회원 저장 완료 - userId={}",
+                savedUser.getUserId());
+
+        String signupToken =
+                signupTokenProvider.generateToken();
+
+        signupTokenService.save(
+                signupToken,
+                oauthProvider,
+                snsId
+        );
+
+        ResponseCookie signupTokenCookie = ResponseCookie.from(
+                "signupToken",
+                signupToken
+        )
+                .httpOnly(true)
+                .path("/api/v1/auth")
+                .maxAge(60 * 60 * 24)
+                .build();
+
+        log.info(
+                "signupToken Cookie 발급 - {}",
+                signupTokenCookie
+        );
+
+        response.addHeader(
+                "Set-Cookie",
+                signupTokenCookie.toString()
+        );
+
+        log.info(
+                "addHeader 직후 Set-Cookie = {}",
+                response.getHeader("Set-Cookie")
+        );
+
+        log.info(
+                "모든 Set-Cookie = {}",
+                response.getHeaders("Set-Cookie")
+        );
+
+        log.info(
+                "응답 committed 여부 = {}",
+                response.isCommitted()
+        );
+
+        response.sendRedirect("/signup");
+        return;
         }
 
         // 2. 기존 회원
@@ -117,6 +165,34 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         // 4. 기존 회원 + 추가 정보 완성
         log.info("기존 회원이며 추가 정보가 완성되었습니다.");
+        
+        String refreshToken =
+                refreshTokenProvider.generateToken();
+
+        refreshTokenService.save(
+                refreshToken,
+                existingUser.getOauthProvider(),
+                existingUser.getSnsId()
+        );
+
+        // Refresh Token Cookie 발급
+        ResponseCookie refreshTokenCookie = ResponseCookie.from(
+                "refreshToken",
+                refreshToken
+        )
+                .httpOnly(true)
+                .path("/api/v1/auth")
+                .maxAge(60 * 60 * 24)
+                .build();
+
+        response.addHeader(
+                "Set-Cookie",
+                refreshTokenCookie.toString()
+        );
+
+        log.info("refreshToken Cookie 발급 - {}",
+        refreshTokenCookie);
+
         response.sendRedirect("/main");
     }
 }

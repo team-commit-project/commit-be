@@ -9,6 +9,13 @@ public class CsrfConfig {
 
     @Bean
     public CookieCsrfTokenRepository csrfTokenRepository() {
-        return CookieCsrfTokenRepository.withHttpOnlyFalse();
+        CookieCsrfTokenRepository repository =
+                CookieCsrfTokenRepository.withHttpOnlyFalse();
+
+        repository.setCookieName("csrfToken");
+        repository.setHeaderName("X-CSRF-TOKEN");
+        repository.setCookiePath("/");
+
+        return repository;
     }
 }
