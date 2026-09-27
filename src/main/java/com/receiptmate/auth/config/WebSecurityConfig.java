@@ -2,6 +2,7 @@ package com.receiptmate.auth.config;
 
 import com.receiptmate.auth.entrypoint.AuthenticationFailEntryPoint;
 import com.receiptmate.auth.filter.JwtAuthenticationFilter;
+import com.receiptmate.auth.handler.CsrfAccessDeniedHandler;
 import com.receiptmate.auth.handler.OAuth2FailureHandler;
 import com.receiptmate.auth.handler.OAuth2SuccessHandler;
 import com.receiptmate.auth.service.GoogleOidcUserService;
@@ -39,6 +40,7 @@ public class WebSecurityConfig {
     private final OAuth2FailureHandler oAuth2FailureHandler;
     private final AuthenticationFailEntryPoint authenticationFailEntryPoint;
     private final CsrfTokenRepository csrfTokenRepository;
+    private final CsrfAccessDeniedHandler csrfAccessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity security, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
@@ -103,6 +105,7 @@ public class WebSecurityConfig {
 
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(authenticationFailEntryPoint)
+                        .accessDeniedHandler(csrfAccessDeniedHandler)
                 )
 
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

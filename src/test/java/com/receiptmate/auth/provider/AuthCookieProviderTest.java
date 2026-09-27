@@ -61,4 +61,23 @@ class AuthCookieProviderTest {
         assertThat(cookie.getPath()).isEqualTo("/api/v1/auth");
         assertThat(cookie.getMaxAge()).isEqualTo(Duration.ofMinutes(10));
     }
+
+    @Test
+    @DisplayName("Refresh Token 재발급 시 남은 TTL이 쿠키에 적용")
+    public void createRefreshTokenCookieWithRemainingTtl() {
+        // given
+        String refreshToken = "new-refresh-token";
+        Duration remainingTtl = Duration.ofMinutes(30);
+
+        // when
+        ResponseCookie cookie = authCookieProvider.createRefreshTokenCookie(refreshToken, remainingTtl);
+
+        // then
+        assertThat(cookie.getName()).isEqualTo("refreshToken");
+        assertThat(cookie.getValue()).isEqualTo(refreshToken);
+        assertThat(cookie.getMaxAge()).isEqualTo(remainingTtl);
+        assertThat(cookie.isHttpOnly()).isTrue();
+        assertThat(cookie.getPath()).isEqualTo("/api/v1/auth");
+        assertThat(cookie.getSameSite()).isEqualTo("Lax");
+    }
 }

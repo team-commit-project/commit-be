@@ -1,8 +1,11 @@
 package com.receiptmate.auth.service;
 
+import com.receiptmate.auth.dto.AccessTokenReissueResult;
 import com.receiptmate.auth.dto.OAuthSignupSession;
+import com.receiptmate.auth.dto.RotatedRefreshToken;
 import com.receiptmate.auth.dto.request.SignupCompleteRequest;
 import com.receiptmate.auth.exception.AuthErrorCode;
+import com.receiptmate.auth.provider.JwtProvider;
 import com.receiptmate.auth.repository.OAuthSignupSessionRepository;
 import com.receiptmate.category.entity.CategoryEntity;
 import com.receiptmate.category.repository.CategoryRepository;
@@ -31,6 +34,7 @@ public class AuthService {
     private final UserCompanyRepository userCompanyRepository;
     private final CategoryRepository categoryRepository;
     private final RefreshTokenService refreshTokenService;
+    private final JwtProvider jwtProvider;
 
     @Transactional
     public Long completeSignup(String signupToken, SignupCompleteRequest request) {
@@ -75,6 +79,29 @@ public class AuthService {
         log.info("추가 회원가입 완료 후 로그인 인증 발급이 완료되었습니다. userId={}", userId);
 
         return refreshToken;
+    }
+
+    public AccessTokenReissueResult reissue(String refreshToken) {
+        Long userId = refreshTokenService.validate(refreshToken);
+
+        UserCompanyEntity user = userCompanyRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN));
+
+        if (user.getUserStatus() != UserStatus.ACTIVE) {
+            throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        String accessToken = jwtProvider.createAccessToken(userId);
+        long expiration = jwtProvider.getAccessTokenExpirationSeconds();
+
+        RotatedRefreshToken rotateRefreshToken = refreshTokenService.rotate(refreshToken, userId);
+
+        return new AccessTokenReissueResult(
+                accessToken,
+                expiration,
+                rotateRefreshToken.getRefreshToken(),
+                rotateRefreshToken.getRemainingTtl()
+        );
     }
 
     private OAuthSignupSession validateSignupToken(String signupToken) {

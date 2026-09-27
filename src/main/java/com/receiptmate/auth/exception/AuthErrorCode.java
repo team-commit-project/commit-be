@@ -40,10 +40,22 @@ public enum AuthErrorCode implements ErrorCode {
             "로그인이 필요합니다."
     ),
 
+    CSRF_TOKEN_MISMATCH(
+      HttpStatus.FORBIDDEN,
+      "CSRF_TOKEN_MISMATCH",
+      "요청이 올바르지 않습니다. 다시 시도해주세요."
+    ),
+
     ALREADY_SIGNUP_COMPLETED(
             HttpStatus.CONFLICT,
             "ALREADY_SIGNUP_COMPLETED",
-                    "이미 회원가입이 완료된 사용자입니다."
+            "이미 회원가입이 완료된 사용자입니다."
+    ),
+
+    REDIS_ERROR(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "REDIS_ERROR",
+            "요청을 처리하는 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
     );
 
     private final HttpStatus httpStatus;

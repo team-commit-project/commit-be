@@ -1,8 +1,11 @@
 package com.receiptmate.auth.service;
 
+import com.receiptmate.auth.dto.AccessTokenReissueResult;
 import com.receiptmate.auth.dto.OAuthSignupSession;
+import com.receiptmate.auth.dto.RotatedRefreshToken;
 import com.receiptmate.auth.dto.request.SignupCompleteRequest;
 import com.receiptmate.auth.exception.AuthErrorCode;
+import com.receiptmate.auth.provider.JwtProvider;
 import com.receiptmate.auth.repository.OAuthSignupSessionRepository;
 import com.receiptmate.category.entity.CategoryEntity;
 import com.receiptmate.category.repository.CategoryRepository;
@@ -23,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
@@ -44,6 +48,8 @@ class AuthServiceTest {
     private OAuthSignupSessionRepository oAuthSignupSessionRepository;
     @Mock
     private RefreshTokenService refreshTokenService;
+    @Mock
+    private JwtProvider jwtProvider;
 
     @InjectMocks
     private AuthService authService;
@@ -194,5 +200,143 @@ class AuthServiceTest {
         then(oAuthSignupSessionRepository).should().delete(signupToken);
         then(refreshTokenService).should().issue(userId);
         assertThat(result).isEqualTo(refreshToken);
+    }
+
+    @Test
+    @DisplayName("유효한 Refresh Token이면 Access Token을 재발급하고 Refresh Token을 교체")
+    public void reissueAccessToken() {
+        // given
+        String oldRefreshToken = "old-refresh-token";
+        String newRefreshToken = "new-refresh-token";
+        String accessToken = "accessToken";
+
+        Long userId = 1L;
+        long expiration = 300L;
+        Duration remainingTtl = Duration.ofHours(12);
+
+        UserCompanyEntity user = mock(UserCompanyEntity.class);
+        RotatedRefreshToken rotatedToken = mock(RotatedRefreshToken.class);
+
+        when(refreshTokenService.validate(oldRefreshToken)).thenReturn(userId);
+        when(userCompanyRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(user.getUserStatus()).thenReturn(UserStatus.ACTIVE);
+        when(jwtProvider.createAccessToken(userId)).thenReturn(accessToken);
+        when(jwtProvider.getAccessTokenExpirationSeconds()).thenReturn(expiration);
+        when(refreshTokenService.rotate(oldRefreshToken, userId)).thenReturn(rotatedToken);
+        when(rotatedToken.getRefreshToken()).thenReturn(newRefreshToken);
+        when(rotatedToken.getRemainingTtl()).thenReturn(remainingTtl);
+
+        // when
+        AccessTokenReissueResult result = authService.reissue(oldRefreshToken);
+
+        // then
+        assertThat(result.getAccessToken()).isEqualTo(accessToken);
+        assertThat(result.getExpiration()).isEqualTo(expiration);
+        assertThat(result.getRefreshToken()).isEqualTo(newRefreshToken);
+        assertThat(result.getRefreshTokenTtl()).isEqualTo(remainingTtl);
+        then(refreshTokenService).should().validate(oldRefreshToken);
+        then(refreshTokenService).should().rotate(oldRefreshToken, userId);
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 Refresh Token이면 재발급 중단")
+    public void reissueWithInvalidRefreshToken() {
+        // given
+        String refreshToken = "invalid-refresh-token";
+        given(refreshTokenService.validate(refreshToken)).willThrow(new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN));
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(refreshToken))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception ->
+                    assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN)
+        );
+        then(refreshTokenService).should().validate(refreshToken);
+        then(userCompanyRepository).shouldHaveNoInteractions();
+        then(jwtProvider).shouldHaveNoInteractions();
+        then(refreshTokenService).should(never()).rotate(anyString(), anyLong());
+    }
+
+    @Test
+    @DisplayName("Refresh Token의 사용자 ID가 DB에 존재하지 않으면 재발급 거부")
+    public void reissueWithNonexistentUser() {
+        // given
+        String refreshToken = "valid-refresh-token";
+        Long userId = 1L;
+
+        given(refreshTokenService.validate(refreshToken)).willReturn(userId);
+        given(userCompanyRepository.findById(userId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(refreshToken))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception ->
+                        assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN)
+        );
+
+        then(refreshTokenService).should().validate(refreshToken);
+        then(userCompanyRepository).should().findById(userId);
+        then(jwtProvider).shouldHaveNoInteractions();
+        then(refreshTokenService).should(never()).rotate(anyString(), anyLong());
+    }
+
+    @Test
+    @DisplayName("ACTIVE 상태가 아닌 사용자는 Access Token 재발급 거부")
+    public void reissueWithInactiveUser() {
+        // given
+        String refreshToken = "valid-refresh-token";
+        Long userId = 1L;
+
+        // 신규 OAuth 사용자는 SIGNUP_REQUIRED 상태
+        UserCompanyEntity user = UserCompanyEntity.createOAuthUser("sns-id", OAuthProviderType.KAKAO);
+
+        given(refreshTokenService.validate(refreshToken)).willReturn(userId);
+        given(userCompanyRepository.findById(userId)).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(refreshToken))
+            .isInstanceOf(BusinessException.class)
+            .satisfies(exception ->
+                        assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN)
+        );
+
+        then(refreshTokenService).should().validate(refreshToken);
+        then(userCompanyRepository).should().findById(userId);
+        then(jwtProvider).shouldHaveNoInteractions();
+        then(refreshTokenService).should(never()).rotate(anyString(), anyLong());
+    }
+
+    @Test
+    @DisplayName("Refresh Token 교체에 실패하면 Access Token 재발급 거부")
+    public void reissueWhenRotationFails() {
+        // given
+        String refreshToken = "valid-refresh-token";
+        Long userId = 1L;
+
+        UserCompanyEntity user = UserCompanyEntity.createOAuthUser("sns-id", OAuthProviderType.KAKAO);
+        user.completeSignup();
+
+        given(refreshTokenService.validate(refreshToken)).willReturn(userId);
+        given(userCompanyRepository.findById(userId)).willReturn(Optional.of(user));
+        given(jwtProvider.createAccessToken(userId)).willReturn("new-access-token");
+
+        // 다른 요청이 먼저 Refresh Token을 교체한 상황
+        given(refreshTokenService.rotate(refreshToken, userId)).willThrow(new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN));
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(refreshToken))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception ->
+                        assertThat(((BusinessException) exception).getErrorCode())
+                                .isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN)
+        );
+
+        then(refreshTokenService).should().validate(refreshToken);
+        then(userCompanyRepository).should().findById(userId);
+        then(jwtProvider).should().createAccessToken(userId);
+        then(refreshTokenService).should().rotate(anyString(), anyLong());
     }
 }
