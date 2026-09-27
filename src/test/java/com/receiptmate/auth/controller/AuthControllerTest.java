@@ -1,7 +1,9 @@
 package com.receiptmate.auth.controller;
 
+import com.receiptmate.auth.dto.AccessTokenReissueResult;
 import com.receiptmate.auth.dto.request.SignupCompleteRequest;
 import com.receiptmate.auth.exception.AuthErrorCode;
+import com.receiptmate.auth.exception.RedisOperationException;
 import com.receiptmate.auth.provider.AuthCookieProvider;
 import com.receiptmate.auth.provider.CsrfTokenProvider;
 import com.receiptmate.auth.provider.JwtProvider;
@@ -27,6 +29,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -35,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.hamcrest.Matchers.containsString;
 
 @WebMvcTest(AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -54,11 +58,15 @@ class AuthControllerTest {
     @MockitoBean
     private JwtProvider jwtProvider;
 
+    private static final String OAUTH_LOGIN_URL = "/api/v1/auth/sns/";
+    private static final String SIGNUP_COMPLETE_URL = "/api/v1/auth/signup-complete";
+    private static final String REISSUE_URL = "/api/v1/auth/reissue";
+
     @Test
     @DisplayName("지원하지 않는 SNS 로그인 방식은 400과 에러 정보를 반환")
     public void unsupportedProvider() throws Exception {
         String provider = "instagram";
-        mockMvc.perform(get("/api/v1/auth/sns/" + provider))
+        mockMvc.perform(get(OAUTH_LOGIN_URL + provider))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(AuthErrorCode.UNSUPPORTED_SNS_PROVIDER.getCode()))
                 .andExpect(jsonPath("$.message").value(AuthErrorCode.UNSUPPORTED_SNS_PROVIDER.getMessage()));
@@ -101,7 +109,7 @@ class AuthControllerTest {
 
         // when
         ResultActions result = mockMvc.perform(
-                patch("/api/v1/auth/signup-complete")
+                patch(SIGNUP_COMPLETE_URL)
                         .cookie(new Cookie("signupToken", signupToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
@@ -163,7 +171,7 @@ class AuthControllerTest {
         
         // when
         mockMvc.perform(
-                patch("/api/v1/auth/signup-complete")
+                patch(SIGNUP_COMPLETE_URL)
                         .cookie(new Cookie("signupToken", signupToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
@@ -179,5 +187,96 @@ class AuthControllerTest {
         then(authService).should(never()).issueRefreshTokenAfterSignup(anyString(), anyLong());
         then(authCookieProvider).shouldHaveNoInteractions();
         then(csrfTokenProvider).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Access Token 재발급에 성공하면 Access Token과 새 Refresh Token 쿠키 반환")
+    public void reissueAccessToken() throws Exception {
+        // given
+        String oldRefreshToken = "old-refresh-token";
+        String newRefreshToken = "new-refresh-token";
+        String accessToken = "new-access-token";
+
+        Duration remainingTtl = Duration.ofHours(24);
+
+        AccessTokenReissueResult result = new AccessTokenReissueResult(
+                accessToken,
+                300L,
+                newRefreshToken,
+                remainingTtl
+        );
+
+        ResponseCookie refreshTokenCookie = ResponseCookie
+                .from("refreshToken", newRefreshToken)
+                .httpOnly(true)
+                .path("/api/v1/auth")
+                .maxAge(remainingTtl)
+                .build();
+
+        given(authService.reissue(oldRefreshToken)).willReturn(result);
+        given(authCookieProvider.createRefreshTokenCookie(newRefreshToken, remainingTtl)).willReturn(refreshTokenCookie);
+
+        // when & then
+        mockMvc.perform(post(REISSUE_URL)
+                    .cookie(new Cookie("refreshToken", oldRefreshToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.accessToken").value(accessToken))
+                .andExpect(jsonPath("$.expiration").value(300))
+                .andExpect(header().string(
+                        HttpHeaders.SET_COOKIE,
+                        containsString("refreshToken=" +  newRefreshToken)
+        ));
+
+        then(authService).should().reissue(oldRefreshToken);
+        then(authCookieProvider).should().createRefreshTokenCookie(newRefreshToken, remainingTtl);
+    }
+    
+    @Test
+    @DisplayName("유효하지 않은 Refresh Token이면 401 응답을 반환")
+    public void reissueWithInvalidRefreshToken() throws Exception {
+        // given
+        String invalidRefreshToken = "invalid-refresh-token";
+
+        given(authService.reissue(invalidRefreshToken)).willThrow(new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN));
+        
+        // when & then
+        mockMvc.perform(post(REISSUE_URL)
+                    .cookie(new Cookie("refreshToken", invalidRefreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"))
+                .andExpect(jsonPath("$.message").value("로그인이 만료되었습니다. 다시 로그인해주세요."));
+
+        then(authService).should().reissue(invalidRefreshToken);
+    }
+
+    @Test
+    @DisplayName("Refresh Token 쿠키가 없으면 401 응답 반환")
+    public void reissueWithoutRefreshToken() throws Exception {
+        // when & then
+        mockMvc.perform(post(REISSUE_URL))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code")
+                        .value("INVALID_REFRESH_TOKEN"))
+                .andExpect(jsonPath("$.message")
+                        .value("로그인이 만료되었습니다. 다시 로그인해주세요."));
+    }
+
+    @Test
+    @DisplayName("Redis 장애 발생 시 500 응답 반환")
+    public void reissueWithRedisError() throws Exception {
+        // given
+        String refreshToken = "valid-refresh-token";
+        given(authService.reissue(refreshToken)).willThrow(new RedisOperationException("Redis 연결 오류"));
+
+        // when & then
+        mockMvc.perform(post(REISSUE_URL)
+                        .cookie(new Cookie("refreshToken", refreshToken)))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("REDIS_ERROR"))
+                .andExpect(jsonPath("$.message")
+                        .value("요청을 처리하는 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요."));
+
+        then(authService).should().reissue(refreshToken);
     }
 }
