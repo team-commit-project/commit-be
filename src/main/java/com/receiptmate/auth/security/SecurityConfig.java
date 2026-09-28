@@ -12,13 +12,16 @@ public class SecurityConfig {
 
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final CsrfAccessDeniedHandler csrfAccessDeniedHandler;
+    private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
 
     public SecurityConfig(
             OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
-            CsrfAccessDeniedHandler csrfAccessDeniedHandler
+            CsrfAccessDeniedHandler csrfAccessDeniedHandler,
+            OAuth2LoginFailureHandler oAuth2LoginFailureHandler
     ) {
         this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
         this.csrfAccessDeniedHandler = csrfAccessDeniedHandler;
+        this.oAuth2LoginFailureHandler = oAuth2LoginFailureHandler;
     }
 
     @Bean
@@ -48,6 +51,7 @@ public class SecurityConfig {
             )
             .oauth2Login(oauth2 -> oauth2
                 .successHandler(oAuth2LoginSuccessHandler)
+                .failureHandler(oAuth2LoginFailureHandler)
             );
 
         return http.build();
