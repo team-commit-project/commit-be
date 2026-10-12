@@ -27,6 +27,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
     implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
+    implementation 'com.maxmind.geoip2:geoip2:5.2.0'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	runtimeOnly 'org.flywaydb:flyway-mysql'

@@ -74,3 +74,6 @@ oauth:
 jwt:
   secret: test-jwt-secret-key-test-jwt-secret-key-1234
   access-token-expiration-seconds: 300
+
+geoip:
+  database-path: ${GEOIP_DATABASE_PATH}
