@@ -32,14 +32,7 @@ public class GeoLocationService {
             }
 
             return databaseReader.tryCity(address)
-                    .map(response -> Stream.of(
-                                    response.city().name(),
-                                    response.mostSpecificSubdivision().name(),
-                                    response.country().name()
-                            )
-                            .filter(StringUtils::hasText)
-                            .findFirst()
-                            .orElse(null))
+                    .map(response -> response.mostSpecificSubdivision().name())
                     .orElse(null);
 
         } catch (IOException | GeoIp2Exception exception) {

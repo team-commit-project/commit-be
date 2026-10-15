@@ -38,7 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String userId = jwtProvider.validateAccessToken(accessToken);
 
-            // todo: 실제 존재하는 회원인지 확인
+            // todo: 회원 탈퇴, 계정 정지 기능 도입시, 실제 존재하는 회원인지 확인
 
             setContext(userId, request);
         } catch (JwtException | IllegalArgumentException e) {

@@ -23,7 +23,7 @@ public class GeoIpConfig {
         }
 
         return new DatabaseReader.Builder(databaseFile)
-                .locales(List.of("ko", "en"))
+                .locales(List.of("en"))
                 .withCache(new CHMCache())
                 .build();
     }
