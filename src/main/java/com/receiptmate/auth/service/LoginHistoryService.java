@@ -1,5 +1,6 @@
 package com.receiptmate.auth.service;
 
+import com.receiptmate.auth.dto.response.RecentLoginResponse;
 import com.receiptmate.auth.entity.LoginHistoryEntity;
 import com.receiptmate.auth.exception.AuthErrorCode;
 import com.receiptmate.auth.repository.LoginHistoryRepository;
@@ -12,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -37,6 +38,20 @@ public class LoginHistoryService {
 
         LoginHistoryEntity loginHistoryEntity = new LoginHistoryEntity(userCompanyEntity, ipAddress, loginRegion, LocalDateTime.now());
         loginHistoryRepository.save(loginHistoryEntity);
+    }
+
+    public RecentLoginResponse getRecentLogin(Long userId) {
+        List<LoginHistoryEntity> loginHistories = loginHistoryRepository.findRecentTwoByUserId(userId);
+
+        // 이전 로그인 이력이 없는 경우
+        if (loginHistories.size() < 2) {
+            return new RecentLoginResponse(null, null);
+        }
+
+        // 현재 로그인 기록을 제외한 이전 로그인 기록
+        LoginHistoryEntity previousLogin = loginHistories.get(1);
+
+        return new RecentLoginResponse(previousLogin.getLoginRegion(), previousLogin.getLoginAt());
     }
 
 }

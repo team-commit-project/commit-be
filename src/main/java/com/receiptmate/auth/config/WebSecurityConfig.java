@@ -76,6 +76,8 @@ public class WebSecurityConfig {
                 // 요청 접근 권한
                 .authorizeHttpRequests(request -> request
 
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/recent-login").authenticated()
+
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/auth/signup-complete").permitAll()
 
                         // OAuth 로그인 시작

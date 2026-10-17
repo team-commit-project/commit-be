@@ -3,11 +3,13 @@ package com.receiptmate.auth.controller;
 import com.receiptmate.auth.dto.AccessTokenReissueResult;
 import com.receiptmate.auth.dto.request.SignupCompleteRequest;
 import com.receiptmate.auth.dto.response.AccessTokenReissueResponse;
+import com.receiptmate.auth.dto.response.RecentLoginResponse;
 import com.receiptmate.auth.dto.response.SignupCompleteResponse;
 import com.receiptmate.auth.exception.AuthErrorCode;
 import com.receiptmate.auth.provider.AuthCookieProvider;
 import com.receiptmate.auth.provider.CsrfTokenProvider;
 import com.receiptmate.auth.service.AuthService;
+import com.receiptmate.auth.service.LoginHistoryService;
 import com.receiptmate.common.exception.BusinessException;
 import com.receiptmate.user.type.OAuthProviderType;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,6 +17,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -28,6 +31,7 @@ public class AuthController {
     private final AuthService authService;
     private final AuthCookieProvider authCookieProvider;
     private final CsrfTokenProvider csrfTokenProvider;
+    private final LoginHistoryService loginHistoryService;
 
     @GetMapping("/sns/{provider}")
     public void login(@PathVariable("provider") String provider, HttpServletResponse response) throws IOException {
@@ -78,5 +82,12 @@ public class AuthController {
                 result.getAccessToken(),
                 result.getExpiration()
         );
+    }
+
+    @GetMapping("/recent-login")
+    public RecentLoginResponse getRecentLogin(@AuthenticationPrincipal Long userId) {
+        System.out.println("userId = " + userId);
+        RecentLoginResponse result = loginHistoryService.getRecentLogin(userId);
+        return result;
     }
 }
