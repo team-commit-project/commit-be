@@ -38,9 +38,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String userId = jwtProvider.validateAccessToken(accessToken);
 
-            // todo: 실제 존재하는 회원인지 확인
+            // todo: 회원 탈퇴, 계정 정지 기능 도입시, 실제 존재하는 회원인지 확인
 
-            setContext(userId, request);
+            setContext(Long.valueOf(userId), request);
         } catch (JwtException | IllegalArgumentException e) {
             // JWT 만료, 위조, 형식 오류 등이 경우 인증 정보를 등록하지 않음
             SecurityContextHolder.clearContext();
@@ -67,7 +67,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     // 인증된 사용자 정보를 SecurityContext에 등록
-    private void setContext(String userId, HttpServletRequest request) {
+    private void setContext(Long userId, HttpServletRequest request) {
         // 접근 주체의 정보가 담길 인증 토큰 생성
         AbstractAuthenticationToken authenticationToken =
                 new UsernamePasswordAuthenticationToken(userId, null, AuthorityUtils.NO_AUTHORITIES);

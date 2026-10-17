@@ -8,14 +8,19 @@ import com.receiptmate.auth.generator.SecureTokenGenerator;
 import com.receiptmate.auth.provider.AuthCookieProvider;
 import com.receiptmate.auth.provider.CsrfTokenProvider;
 import com.receiptmate.auth.repository.OAuthSignupSessionRepository;
+import com.receiptmate.auth.service.LoginHistoryService;
 import com.receiptmate.auth.service.RefreshTokenService;
 import com.receiptmate.common.exception.CommonErrorCode;
+import com.receiptmate.common.web.ClientIpResolver;
 import com.receiptmate.user.type.UserStatus;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.transaction.TransactionalException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
@@ -28,6 +33,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
@@ -42,6 +48,8 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final OAuthSignupSessionRepository oAuthSignupSessionRepository;
     private final AuthCookieProvider authCookieProvider;
     private final CsrfTokenProvider csrfTokenProvider;
+    private final ClientIpResolver clientIpResolver;
+    private final LoginHistoryService loginHistoryService;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
@@ -69,6 +77,16 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
                 throw internalServerError(e);
 
+            }
+
+            // 로그인 이력 저장 (실패하더라도 로그인 진행)
+            try {
+
+                String ipAddress = clientIpResolver.resolve(request);
+                loginHistoryService.save(userId, ipAddress);
+
+            } catch (DataAccessException | TransactionalException exception) {
+                log.warn("로그인 이력 DB 저장에 실패했습니다. userId={}", userId, exception);
             }
 
             // Redis Token 원문은 HttpOnly Cookie에 저장

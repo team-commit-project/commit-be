@@ -7,8 +7,10 @@ import com.receiptmate.auth.generator.SecureTokenGenerator;
 import com.receiptmate.auth.provider.AuthCookieProvider;
 import com.receiptmate.auth.provider.CsrfTokenProvider;
 import com.receiptmate.auth.repository.OAuthSignupSessionRepository;
+import com.receiptmate.auth.service.LoginHistoryService;
 import com.receiptmate.auth.service.RefreshTokenService;
 import com.receiptmate.common.exception.CommonErrorCode;
+import com.receiptmate.common.web.ClientIpResolver;
 import com.receiptmate.user.type.UserStatus;
 import jakarta.servlet.ServletException;
 import org.assertj.core.api.Assertions;
@@ -20,6 +22,7 @@ import org.mockito.BDDMockito;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -57,6 +60,11 @@ class OAuth2SuccessHandlerTest {
     @Mock
     private OAuthPrincipal oAuthPrincipal;
 
+    @Mock
+    private ClientIpResolver clientIpResolver;
+    @Mock
+    private LoginHistoryService loginHistoryService;
+
     private OAuth2SuccessHandler oAuth2SuccessHandler;
 
     private MockHttpServletRequest request;
@@ -69,7 +77,9 @@ class OAuth2SuccessHandlerTest {
                 refreshTokenService,
                 oAuthSignupSessionRepository,
                 authCookieProvider,
-                csrfTokenProvider
+                csrfTokenProvider,
+                clientIpResolver,
+                loginHistoryService
         );
 
         ReflectionTestUtils.setField(oAuth2SuccessHandler, "oauthClientMain", CLIENT_MAIN);
@@ -80,7 +90,7 @@ class OAuth2SuccessHandlerTest {
     }
     
     @Test
-    @DisplayName("ACTIVE 사용자는 OAuth 로그인 성공 시 Refresh Token을 발급히고 메인으로 리다이렉트")
+    @DisplayName("ACTIVE 사용자는 OAuth 로그인 성공 시 Refresh Token을 발급하고 메인으로 리다이렉트")
     public void activeUserIssueRefreshToken() throws ServletException, IOException {
         // given
         Long userId = 1L;
@@ -183,6 +193,48 @@ class OAuth2SuccessHandlerTest {
     private void givenOAuthUserStatus(UserStatus userStatus) {
         given(authentication.getPrincipal()).willReturn(oAuthPrincipal);
         given(oAuthPrincipal.getUserStatus()).willReturn(userStatus);
+    }
+
+    @Test
+    @DisplayName("로그인 이력 DB 저장 실패 시에도 ACTIVE 사용자는 정상적으로 로그인")
+    public void activeUserLoginHistorySaveFailure() throws Exception{
+        // given
+        Long userId = 1L;
+        String ipAddress = "203.0.112.10";
+        String refreshToken = "refresh-token";
+
+        givenOAuthUserStatus(UserStatus.ACTIVE);
+        given(oAuthPrincipal.getUserId()).willReturn(userId);
+        
+        given(refreshTokenService.issue(userId)).willReturn(refreshToken);
+        
+        given(clientIpResolver.resolve(request)).willReturn(ipAddress);
+
+        ResponseCookie refreshTokenCookie = ResponseCookie
+                .from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .path("/api/v1/auth")
+                .build();
+
+        given(authCookieProvider.createRefreshTokenCookie(refreshToken)).willReturn(refreshTokenCookie);
+
+        // 로그인 이력 저장 시 DB 장애 발생
+        willThrow(new DataAccessResourceFailureException("DB 연결 실패"))
+                .given(loginHistoryService)
+                .save(userId, ipAddress);
+
+        // when
+        assertThatCode(() -> oAuth2SuccessHandler.onAuthenticationSuccess(
+                request, response, authentication)
+        ).doesNotThrowAnyException();
+
+        // then
+        then(refreshTokenService).should().issue(userId);
+        then(loginHistoryService).should().save(userId, ipAddress);
+        then(authCookieProvider).should().createRefreshTokenCookie(refreshToken);
+
+        assertThat(response.getHeader(HttpHeaders.SET_COOKIE)).isEqualTo(refreshTokenCookie.toString());
+        assertThat(response.getRedirectedUrl()).isEqualTo(CLIENT_MAIN);
     }
 
 }
